@@ -7,7 +7,8 @@
 //
 
 import Foundation
-enum OpCode: UInt8 {
+
+@objc enum OpCode: UInt8 {
     // Constants
     case PUSH0 = 0x00, // An empty array of bytes is pushed onto the stack.
     PUSHBYTES1 = 0x01, // 01-4B The next opcode bytes is data to be pushed onto the stack
@@ -75,7 +76,6 @@ enum OpCode: UInt8 {
     OR = 0x85, // Boolean or between each bit in the inputs.
     XOR = 0x86, // Boolean exclusive or between each bit in the inputs.
     EQUAL = 0x87, // Returns 1 if the inputs are exactly equal, 0 otherwise.
-    
     
     // Arithmetic
     // Note: Arithmetic inputs are limited to signed 32-bit integers, but may overflow their output.

@@ -9,8 +9,8 @@
 import Foundation
 import CommonCrypto
 
-struct AES {
-    public enum KeySize: Int {
+@objc public class AES: NSObject {
+    @objc public enum KeySize: Int {
         case keySize128 = 128
         case keySize192 = 192
         case keySize256 = 256
@@ -24,11 +24,11 @@ struct AES {
         }
     }
     
-    static public func encrypt(bytes: [UInt8], key: [UInt8], keySize: KeySize, pkcs7Padding: Bool) -> [UInt8] {
+    @objc static public func encrypt(bytes: [UInt8], key: [UInt8], keySize: KeySize, pkcs7Padding: Bool) -> [UInt8] {
         assert(keySize.rawValue / 8 <= key.count)
         
         let options = kCCOptionECBMode | (pkcs7Padding ? kCCOptionPKCS7Padding : 0)
-
+        
         let resultSize = bytes.count + 16
         
         var result: [UInt8] = Array(repeatElement(0, count: resultSize))
@@ -52,7 +52,7 @@ struct AES {
         return result
     }
     
-    static public func decrypt(bytes: [UInt8], key: [UInt8], keySize: KeySize, pkcs7Padding: Bool) -> [UInt8] {
+    @objc static public func decrypt(bytes: [UInt8], key: [UInt8], keySize: KeySize, pkcs7Padding: Bool) -> [UInt8] {
         assert(keySize.rawValue / 8 <= key.count)
         
         let options = kCCOptionECBMode | (pkcs7Padding ? kCCOptionPKCS7Padding : 0)
@@ -81,5 +81,3 @@ struct AES {
         
     }
 }
-
-

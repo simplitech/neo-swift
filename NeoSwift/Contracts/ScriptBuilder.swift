@@ -8,13 +8,13 @@
 
 import Foundation
 
-public class ScriptBuilder {
+@objc public class ScriptBuilder: NSObject {
     private(set) public var rawBytes = [UInt8]()
     var rawHexString: String {
         return rawBytes.fullHexString
     }
     
-    public init() {
+    public override init() {
         rawBytes = []
     }
     
@@ -36,28 +36,35 @@ public class ScriptBuilder {
             let rawValue = OpCode.PUSH1.rawValue + UInt8(intValue) - 1
             rawBytes.append(rawValue)
         default:
-            let intBytes = toByteArray(intValue)
-            pushData(intBytes.fullHexString)
+            let intBytes = toByteArrayWithoutTrailingZeros(intValue)
+            pushHexString(intBytes.fullHexString)
         }
     }
     
     private func pushHexString(_ stringValue: String) {
         let stringBytes = stringValue.dataWithHexString().bytes
-        if stringBytes.count < OpCode.PUSHBYTES75.rawValue {
-            rawBytes = rawBytes + toByteArrayWithoutTrailingZeros(stringBytes.count)
-            rawBytes = rawBytes + stringBytes
+        pushBytes(stringBytes)
+    }
+    
+    private func pushBytes(_ stringBytes: [UInt8]) {
+        let size = stringBytes.count
+        if stringBytes.count <= OpCode.PUSHBYTES75.rawValue {
+            rawBytes = rawBytes + size.toHexString().dataWithHexString().bytes
+            rawBytes += stringBytes
         } else if stringBytes.count < 0x100 {
             pushOPCode(.PUSHDATA1)
-            rawBytes = rawBytes + toByteArrayWithoutTrailingZeros(stringBytes.count)
-            rawBytes = rawBytes + stringBytes
+            rawBytes = rawBytes + size.toHexString().dataWithHexString().bytes
+            rawBytes += stringBytes
         } else if stringBytes.count < 0x10000 {
             pushOPCode(.PUSHDATA2)
-            rawBytes = rawBytes + toByteArrayWithoutTrailingZeros(stringBytes.count)
-            rawBytes = rawBytes + stringBytes
+            let sizeUInt16: UInt16 = UInt16(size)
+            rawBytes = rawBytes + sizeUInt16.data.bytes
+            rawBytes += stringBytes
         } else {
             pushOPCode(.PUSHDATA4)
-            rawBytes = rawBytes + toByteArrayWithoutTrailingZeros(stringBytes.count)
-            rawBytes = rawBytes + stringBytes
+            let sizeInt32: Int32 = Int32(size)
+            rawBytes = rawBytes + sizeInt32.data.bytes
+            rawBytes += stringBytes
         }
     }
     
@@ -69,11 +76,49 @@ public class ScriptBuilder {
         pushOPCode(.PACK)
     }
     
-    public func resetScript() {
+    private func pushParam(_ data: ContractParam) {
+        switch data.type {
+        case .String:
+            if let stringValue = data.value as? String {
+                pushHexString(stringValue)
+            }
+            break
+        case .Boolean:
+            if let boolValue = data.value as? Bool {
+                pushBool(boolValue)
+            }
+            break
+        case .Integer:
+            if let intValue = data.value as? Int {
+                pushInt(intValue)
+            }
+            break
+        case .ByteArray:
+            if let stringValue = data.value as? String {
+                pushHexString(stringValue)
+            }
+            break
+        case .Array:
+            if let arrayValue = data.value as? [Any?] {
+                pushArray(arrayValue)
+            }
+            break
+        case .Hash160:
+            if let stringValue = data.value as? String {
+                pushBytes(stringValue.dataWithHexString().bytes.reversed())
+            }
+            break
+        default:
+            fatalError("Unsupported Data Type Pushed on stack")
+            break
+        }
+    }
+    
+    @objc public func resetScript() {
         rawBytes.removeAll()
     }
     
-    public func pushData(_ data: Any?) {
+    @objc public func pushData(_ data: Any?) {
         if let boolValue = data as? Bool {
             pushBool(boolValue)
         } else if let intValue = data as? Int {
@@ -84,12 +129,16 @@ public class ScriptBuilder {
             pushArray(arrayValue)
         } else if data == nil {
             pushBool(false)
+        } else if let opcodeValue = data as? OpCode {
+            pushOPCode(opcodeValue)
+//        } else if let mapValue = data as? [String:Any], let contractParam = ContractParam.likeContractParam(mapValue) {
+//            pushParam(contractParam)
         } else {
             fatalError("Unsupported Data Type Pushed on stack")
         }
     }
     
-    public func pushContractInvoke(scriptHash: String, operation: String? = nil, args: Any? = nil, useTailCall: Bool = false) {
+    @objc public func pushContractInvoke(scriptHash: String, operation: String? = nil, args: Any? = nil, useTailCall: Bool = false) {
         pushData(args)
         
         if let operation = operation {
@@ -104,7 +153,7 @@ public class ScriptBuilder {
         } else {
             pushOPCode(.APPCALL)
             let toAppendBytes = scriptHash.dataWithHexString().bytes.reversed()
-            rawBytes = rawBytes + toAppendBytes
+            rawBytes += toAppendBytes
         }
     }
 }
